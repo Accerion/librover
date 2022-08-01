@@ -18,7 +18,7 @@ CommSerial::CommSerial(const char *device,
   tty.c_cflag &= ~CSTOPB;  // Clear stop field, only one stop bit used in
                            // communication (most common)
   tty.c_cflag &= ~CSIZE;   // Clear all bits that set the data size tty.c_cflag
-                           // |= CS8; // 8 bits per byte (most common)
+  tty.c_cflag |= CS8;      // |= CS8; // 8 bits per byte (most common)
   tty.c_cflag &=
       ~CRTSCTS;  // Disable RTS/CTS hardware flow control (most common)
   tty.c_cflag |=
