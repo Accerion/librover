@@ -10,10 +10,10 @@ struct motorData {
   };
 
 struct batteryData {
-  unsigned short int voltage;
+  float voltage;
   signed short int temp;
   unsigned short int current;
-  float SOC;
+  bool SOC;
   unsigned short int fault_flag;
   };
 

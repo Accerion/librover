@@ -7,7 +7,6 @@ ProProtocolObject::ProProtocolObject(const char *device,
                                      Control::robot_motion_mode_t robot_mode,
                                      Control::pid_gains pid) {
 
-	std::cout << "Protocol pro constructor" << std::endl;
   comm_type_ = new_comm_type;
   robot_mode_ = robot_mode;
   robotstatus_ = {0};
@@ -20,9 +19,7 @@ ProProtocolObject::ProProtocolObject(const char *device,
   std::vector<uint32_t> slow_data = {
       REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
       REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
-      REG_MOTOR_CHARGER_STATE,   BuildNO,
-//      BATTERY_VOLTAGE_A, BATTERY_VOLTAGE_B, REG_ROBOT_REL_SOC_A, REG_ROBOT_REL_SOC_B, 
-      REG_PWR_BAT_VOLTAGE_A};//, REG_PWR_BAT_VOLTAGE_B};
+      REG_MOTOR_CHARGER_STATE,   BuildNO, REG_PWR_BAT_VOLTAGE_A};
   pid_ = pid;
   PidGains oldgain = {pid_.kp, pid_.ki, pid_.kd};
   if (robot_mode_ != Control::OPEN_LOOP)
@@ -31,11 +28,9 @@ ProProtocolObject::ProProtocolObject(const char *device,
     closed_loop_ = false;
   motor1_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
   motor2_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
-	std::cout << "Protocol pro register comm base" << std::endl;
 
   register_comm_base(device);
 
-  std::cout << "protocol pro registered comm base" << std::endl;
   // Create a New Thread with 30 mili seconds sleep timer
   fast_data_write_thread_ =
       std::thread([this, fast_data]() { this->send_command(30, fast_data); });
@@ -45,7 +40,6 @@ ProProtocolObject::ProProtocolObject(const char *device,
   // Create a motor update thread with 30 mili second sleep timer
   motor_commands_update_thread_ =
       std::thread([this]() { this->motors_control_loop(30); });
-	std::cout << "Protocol pro constructor finsihed" << std::endl;
 }
 
 void ProProtocolObject::update_drivetrim(double value) { trimvalue_ += value; }
@@ -192,7 +186,6 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
     if (checksum == read_checksum) {  // verify checksum
 
       int16_t b = (data1 << 8) + data2;
-	std::cout << "dataNo = " << (int) dataNO << ", " << b << std::endl;
       switch (int(dataNO)) {
         case REG_PWR_TOTAL_CURRENT:
           break;
@@ -229,11 +222,8 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           break;
         case REG_PWR_BAT_VOLTAGE_A:
 	  robotstatus_.battery1.voltage = b/REG_PWR_BAT_VALUE_2_VOLTAGE_;
-
-	  std::cout << "REG_PWR_BAT_VOLTAGE_A = " << b << std::endl;
           break;
         case REG_PWR_BAT_VOLTAGE_B:
-	  std::cout << "REG_PWR_BAT_VOLTAGE_B = " << b << std::endl;
           break;
         case EncoderInterval_0:
           break;
@@ -242,7 +232,6 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
         case EncoderInterval_2:
           break;
         case REG_ROBOT_REL_SOC_A:
-	  std::cout << "robot status battery1 SOC = " << b << std::endl;
           robotstatus_.battery1.SOC = b;
           break;
         case REG_ROBOT_REL_SOC_B:
@@ -250,8 +239,6 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
         case REG_MOTOR_CHARGER_STATE:
           break;
         case BuildNO:
-
-	  std::cout << "robot firmware = " << b << std::endl;
           robotstatus_.robot_firmware = b;
           break;
         case REG_PWR_A_CURRENT:
@@ -283,20 +270,12 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           robotstatus_.battery2.temp = b;
           break;
         case BATTERY_VOLTAGE_A:
-//	  std::cout <<"bat volt A = " << b << std::endl;
-//          robotstatus_.battery1.voltage = b;
           break;
         case BATTERY_VOLTAGE_B:
-//	  std::cout <<"bat volt B = " << b << std::endl;
-//          robotstatus_.battery2.voltage = b;
           break;
         case BATTERY_CURRENT_A:
-//	  std::cout <<"bat cur A = " << b << std::endl;
-//          robotstatus_.battery1.current = b;
           break;
         case BATTERY_CURRENT_B:
-//	  std::cout <<"bat cur B = " << b << std::endl;
-//          robotstatus_.battery2.current = b;
           break;
       }
       // !Same battery system for both A and B on this robot
