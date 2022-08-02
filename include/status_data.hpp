@@ -13,7 +13,7 @@ struct batteryData {
   unsigned short int voltage;
   signed short int temp;
   unsigned short int current;
-  bool SOC;
+  float SOC;
   unsigned short int fault_flag;
   };
 
