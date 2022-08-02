@@ -21,7 +21,8 @@ ProProtocolObject::ProProtocolObject(const char *device,
       REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
       REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
       REG_MOTOR_CHARGER_STATE,   BuildNO,
-      BATTERY_VOLTAGE_A, BATTERY_VOLTAGE_B, REG_ROBOT_REL_SOC_A, REG_ROBOT_REL_SOC_B, REG_PWR_BAT_VOLTAGE_A, REG_PWR_BAT_VOLTAGE_B};
+//      BATTERY_VOLTAGE_A, BATTERY_VOLTAGE_B, REG_ROBOT_REL_SOC_A, REG_ROBOT_REL_SOC_B, 
+      REG_PWR_BAT_VOLTAGE_A};//, REG_PWR_BAT_VOLTAGE_B};
   pid_ = pid;
   PidGains oldgain = {pid_.kp, pid_.ki, pid_.kd};
   if (robot_mode_ != Control::OPEN_LOOP)
@@ -227,6 +228,7 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           robotstatus_.motor2.temp = b;
           break;
         case REG_PWR_BAT_VOLTAGE_A:
+	  robotstatus_.battery1.voltage = b/REG_PWR_BAT_VALUE_2_VOLTAGE_;
 
 	  std::cout << "REG_PWR_BAT_VOLTAGE_A = " << b << std::endl;
           break;
@@ -281,20 +283,20 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           robotstatus_.battery2.temp = b;
           break;
         case BATTERY_VOLTAGE_A:
-	  std::cout <<"bat volt A = " << b << std::endl;
-          robotstatus_.battery1.voltage = b;
+//	  std::cout <<"bat volt A = " << b << std::endl;
+//          robotstatus_.battery1.voltage = b;
           break;
         case BATTERY_VOLTAGE_B:
-	  std::cout <<"bat volt B = " << b << std::endl;
-          robotstatus_.battery2.voltage = b;
+//	  std::cout <<"bat volt B = " << b << std::endl;
+//          robotstatus_.battery2.voltage = b;
           break;
         case BATTERY_CURRENT_A:
-	  std::cout <<"bat cur A = " << b << std::endl;
-          robotstatus_.battery1.current = b;
+//	  std::cout <<"bat cur A = " << b << std::endl;
+//          robotstatus_.battery1.current = b;
           break;
         case BATTERY_CURRENT_B:
-	  std::cout <<"bat cur B = " << b << std::endl;
-          robotstatus_.battery2.current = b;
+//	  std::cout <<"bat cur B = " << b << std::endl;
+//          robotstatus_.battery2.current = b;
           break;
       }
       // !Same battery system for both A and B on this robot
