@@ -5,7 +5,7 @@ namespace RoverRobotics {
 Zero2ProtocolObject::Zero2ProtocolObject(
     const char *device, std::string new_comm_type,
     Control::robot_motion_mode_t robot_mode, Control::pid_gains pid,
-    Control::angular_scaling_params angular_scale) {
+    Control::angular_scaling_params angular_scale): use_ext_fb_(false) {
   /* create object to load/store persistent parameters (ie trim) */
   persistent_params_ =
       std::make_unique<Utilities::PersistentParams>(ROBOT_PARAM_PATH);
@@ -132,6 +132,10 @@ void Zero2ProtocolObject::set_robot_velocity(double *controlarray) {
   robotstatus_.cmd_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::system_clock::now().time_since_epoch());
   robotstatus_mutex_.unlock();
+}
+
+void Zero2ProtocolObject::set_robot_fb_velocity(double linear_vel, double angular_vel) {
+  std::cout << "ERROR: external fb not implemented for pro 2 robot." << std::endl;
 }
 
 void Zero2ProtocolObject::motors_control_loop(int sleeptime) {
@@ -544,4 +548,11 @@ unsigned short Zero2ProtocolObject::crc16(unsigned char *buf,
   }
   return cksum;
 }
+
+void Zero2ProtocolObject::use_external_fb(const bool use_ext_fb)
+{
+  use_ext_fb_ = use_ext_fb;
+  std::cout << "ERROR: external fb not implemented for zero 2 robot." << std::endl;
+}
+
 }  // namespace RoverRobotics
