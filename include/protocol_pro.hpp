@@ -48,6 +48,12 @@ class RoverRobotics::ProProtocolObject
    */
   void set_robot_velocity(double* controllarray) override;
   /*
+   * @brief set the (externally) observed robot velocity
+   * @param linear_vel the forward robot velocity
+   * @param linear_vel the rotational robot velocity (around the z-axis)
+   */
+  void set_robot_fb_velocity(double linear_vel, double angular_vel) override;
+  /*
    * @brief Unpack bytes from the robot
    * This is meant to use as a callback function when there are bytes available
    * to process
@@ -70,6 +76,11 @@ class RoverRobotics::ProProtocolObject
    * @param device is the address of the device (ttyUSB0 , can0, ttyACM0)
    */
   void register_comm_base(const char* device) override;
+  /*
+   * @brief Listen to external fb commands or not
+   * @param use_ext_fb listen to external bf when true, otherwise use fb from motors
+   */
+  void use_external_fb(const bool use_ext_fb) override;
 
  private:
   /*
@@ -113,6 +124,8 @@ class RoverRobotics::ProProtocolObject
   OdomControl motor2_control_;
   Control::robot_motion_mode_t robot_mode_;
   Control::pid_gains pid_;
+
+  bool use_ext_fb_;
 
   enum robot_motors { LEFT_MOTOR, RIGHT_MOTOR, FLIPPER_MOTOR };
 

@@ -127,8 +127,8 @@ robotData Zero2ProtocolObject::info_request() { return robotstatus_; }
 
 void Zero2ProtocolObject::set_robot_velocity(double *controlarray) {
   robotstatus_mutex_.lock();
-  robotstatus_.cmd_linear_vel = controlarray[0];
-  robotstatus_.cmd_angular_vel = controlarray[1];
+  robotstatus_.cmd_vel.linear = controlarray[0];
+  robotstatus_.cmd_vel.angular = controlarray[1];
   robotstatus_.cmd_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::system_clock::now().time_since_epoch());
   robotstatus_mutex_.unlock();
@@ -148,8 +148,8 @@ void Zero2ProtocolObject::motors_control_loop(int sleeptime) {
 
     /* collect user commands and various status */
     robotstatus_mutex_.lock();
-    linear_vel_target = robotstatus_.cmd_linear_vel;
-    angular_vel_target = robotstatus_.cmd_angular_vel;
+    linear_vel_target = robotstatus_.cmd_vel.linear;
+    angular_vel_target = robotstatus_.cmd_vel.angular;
     /* Convert from motors to wheels RPM based on the robot geometry and gear
      * ratio */
     rpm_FL = robotstatus_.motor1.rpm / MOTOR_RPM_TO_WHEEL_RPM_RATIO_;
@@ -179,8 +179,8 @@ void Zero2ProtocolObject::motors_control_loop(int sleeptime) {
       robotstatus_mutex_.lock();
       motors_speeds_[LEFT_MOTOR] = duty_cycles.fl;
       motors_speeds_[RIGHT_MOTOR] = duty_cycles.fr;
-      robotstatus_.linear_vel = velocities.linear_velocity;
-      robotstatus_.angular_vel = velocities.angular_velocity;
+      robotstatus_.motor_fb_vel.linear = velocities.linear_velocity;
+      robotstatus_.motor_fb_vel.angular = velocities.angular_velocity;
       robotstatus_mutex_.unlock();
       send_motors_commands();
     } else {
@@ -194,8 +194,8 @@ void Zero2ProtocolObject::motors_control_loop(int sleeptime) {
       robotstatus_mutex_.lock();
       motors_speeds_[LEFT_MOTOR] = MOTOR_NEUTRAL_;
       motors_speeds_[RIGHT_MOTOR] = MOTOR_NEUTRAL_;
-      robotstatus_.linear_vel = velocities.linear_velocity;
-      robotstatus_.angular_vel = velocities.angular_velocity;
+      robotstatus_.motor_fb_vel.linear = velocities.linear_velocity;
+      robotstatus_.motor_fb_vel.angular = velocities.angular_velocity;
       robotstatus_mutex_.unlock();
       send_motors_commands();
     }

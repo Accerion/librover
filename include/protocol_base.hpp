@@ -36,6 +36,13 @@ class RoverRobotics::BaseProtocolObject {
    * @param controllarray an double array of control in m/s
    */
   virtual void set_robot_velocity(double* controllarray) = 0;
+
+  /*
+   * @brief set the (externally) observed robot velocity
+   * @param linear_vel the forward robot velocity
+   * @param linear_vel the rotational robot velocity (around the z-axis)
+   */
+  virtual void set_robot_fb_velocity(double linear_vel, double angular_vel) = 0;
   /*
    * @brief Request Robot Status
    * @return structure of statusData
@@ -69,4 +76,10 @@ class RoverRobotics::BaseProtocolObject {
    * @param device is the address of the device (ttyUSB0 , can0, ttyACM0)
    */
   virtual void register_comm_base(const char* device) = 0;
+
+    /*
+   * @brief Listen to external fb commands or not
+   * @param use_ext_fb listen to external bf when true, otherwise use fb from motors
+   */
+  virtual void use_external_fb(const bool use_ext_fb) = 0;
 };

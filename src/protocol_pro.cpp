@@ -5,7 +5,7 @@ namespace RoverRobotics {
 ProProtocolObject::ProProtocolObject(const char *device,
                                      std::string new_comm_type,
                                      Control::robot_motion_mode_t robot_mode,
-                                     Control::pid_gains pid) {
+                                     Control::pid_gains pid): use_ext_fb_(false) {
   comm_type_ = new_comm_type;
   robot_mode_ = robot_mode;
   robotstatus_ = {0};
@@ -29,17 +29,24 @@ ProProtocolObject::ProProtocolObject(const char *device,
   motor1_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
   motor2_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
 
-  register_comm_base(device);
+  std::cout << "Pro constructor, going to register_comm_base" << std::endl;
+   register_comm_base(device);
+ 
 
-  // Create a New Thread with 30 mili seconds sleep timer
-  fast_data_write_thread_ =
-      std::thread([this, fast_data]() { this->send_command(30, fast_data); });
-  // Create a new Thread with 50 mili seconds sleep timer
-  slow_data_write_thread_ =
-      std::thread([this, slow_data]() { this->send_command(50, slow_data); });
-  // Create a motor update thread with 30 mili second sleep timer
-  motor_commands_update_thread_ =
-      std::thread([this]() { this->motors_control_loop(30); });
+  std::cout << "Pro constructor, going to do thread 1" << std::endl;
+   // Create a New Thread with 30 mili seconds sleep timer
+   fast_data_write_thread_ =
+       std::thread([this, fast_data]() { this->send_command(30, fast_data); });
+   // Create a new Thread with 50 mili seconds sleep timer
+  std::cout << "Pro constructor, going to do thread 2" << std::endl;
+   slow_data_write_thread_ =
+       std::thread([this, slow_data]() { this->send_command(50, slow_data); });
+   // Create a motor update thread with 30 mili second sleep timer
+  std::cout << "Pro constructor, going to do thread 3" << std::endl;
+   motor_commands_update_thread_ =
+       std::thread([this]() { this->motors_control_loop(30); });
+  std::cout << "Pro constructor finished" << std::endl;
+
 }
 
 void ProProtocolObject::update_drivetrim(double value) { trimvalue_ += value; }
@@ -58,8 +65,8 @@ robotData ProProtocolObject::info_request() { return robotstatus_; }
 
 void ProProtocolObject::set_robot_velocity(double *controlarray) {
   robotstatus_mutex_.lock();
-  robotstatus_.cmd_linear_vel = controlarray[0];
-  robotstatus_.cmd_angular_vel = controlarray[1];
+  robotstatus_.cmd_vel.linear = controlarray[0];
+  robotstatus_.cmd_vel.angular = controlarray[1];
   motors_speeds_[FLIPPER_MOTOR] =
       (int)round(controlarray[2] + MOTOR_NEUTRAL_) % MOTOR_MAX_;
   robotstatus_.cmd_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -67,11 +74,18 @@ void ProProtocolObject::set_robot_velocity(double *controlarray) {
   robotstatus_mutex_.unlock();
 }
 
+void ProProtocolObject::set_robot_fb_velocity(double linear_vel, double angular_vel) {
+  robotstatus_mutex_.lock();
+  robotstatus_.ext_fb_vel.linear = linear_vel;
+  robotstatus_.ext_fb_vel.angular = angular_vel;
+  robotstatus_mutex_.unlock();
+}
+
+
 void ProProtocolObject::motors_control_loop(int sleeptime) {
-  double linear_vel;
-  double angular_vel;
-  double rpm1;
-  double rpm2;
+  robotVelocity ref_vel; //linear_vel, angular_vel; // reference
+  double rpm1, rpm2; // observer motor rotations
+  robotVelocity ext_fb_vel;
 
   std::chrono::milliseconds time_last =
       std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -83,14 +97,23 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
     std::chrono::milliseconds time_now =
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch());
+    
+    // get robot data
     robotstatus_mutex_.lock();
+
     int firmware = robotstatus_.robot_firmware;
-    linear_vel = robotstatus_.cmd_linear_vel;
-    angular_vel = robotstatus_.cmd_angular_vel;
+    time_from_msg = robotstatus_.cmd_ts;
+
+    ref_vel.linear = robotstatus_.cmd_vel.linear;
+    ref_vel.angular = robotstatus_.cmd_vel.angular;
+    ext_fb_vel.linear = robotstatus_.ext_fb_vel.linear;
+    ext_fb_vel.angular = robotstatus_.ext_fb_vel.angular;
+
     rpm1 = robotstatus_.motor1.rpm;
     rpm2 = robotstatus_.motor2.rpm;
-    time_from_msg = robotstatus_.cmd_ts;
+
     robotstatus_mutex_.unlock();
+
     float ctrl_update_elapsedtime = (time_now - time_from_msg).count();
     float pid_update_elapsedtime = (time_now - time_last).count();
 
@@ -106,24 +129,34 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
       continue;
     }
 
-    if (angular_vel == 0) {
-      if (linear_vel > 0) {
-        angular_vel = trimvalue_;
-      } else if (linear_vel < 0) {
-        angular_vel = -trimvalue_;
+    if (ref_vel.angular == 0) {
+      if (ref_vel.linear > 0) {
+        ref_vel.angular = trimvalue_;
+      } else if (ref_vel.linear < 0) {
+        ref_vel.angular = -trimvalue_;
       }
     }
     // !Applying some Skid-steer math
-    double motor1_vel = linear_vel - 0.5 * wheel2wheelDistance * angular_vel;
-    double motor2_vel = linear_vel + 0.5 * wheel2wheelDistance * angular_vel;
+    double motor1_vel = ref_vel.linear - 0.5 * wheel2wheelDistance * ref_vel.angular;
+    double motor2_vel = ref_vel.linear + 0.5 * wheel2wheelDistance * ref_vel.angular;
     if (motor1_vel == 0) motor1_control_.reset();
     if (motor2_vel == 0) motor2_control_.reset();
     if (firmware == OVF_FIXED_FIRM_VER_) {  // check firmware version
       rpm1 = rpm1 * 2;
       rpm2 = rpm2 * 2;
     }
-    double motor1_measured_vel = rpm1 / MOTOR_RPM_TO_MPS_RATIO_;
-    double motor2_measured_vel = rpm2 / MOTOR_RPM_TO_MPS_RATIO_;
+
+    double motor1_measured_vel; // left motor
+    double motor2_measured_vel; // right motor
+
+    if(use_ext_fb_) {
+      // compute motor vel based on externally observed robot vel
+      motor1_measured_vel = ext_fb_vel.linear - 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
+      motor2_measured_vel = ext_fb_vel.linear + 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
+    } else {
+      motor1_measured_vel = rpm1 / MOTOR_RPM_TO_MPS_RATIO_;
+      motor2_measured_vel = rpm2 / MOTOR_RPM_TO_MPS_RATIO_;
+    }
     robotstatus_mutex_.lock();
     // motor speeds in m/s
     motors_speeds_[LEFT_MOTOR] =
@@ -300,20 +333,20 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
       robotstatus_.robot_guid = 0;
       robotstatus_.robot_speed_limit = 0;
       if (robotstatus_.robot_firmware == OVF_FIXED_FIRM_VER_) {  // check firmware version
-        robotstatus_.linear_vel =
+        robotstatus_.motor_fb_vel.linear =
             0.5 * (robotstatus_.motor1.rpm * 2 / MOTOR_RPM_TO_MPS_RATIO_ +
                    robotstatus_.motor2.rpm * 2 / MOTOR_RPM_TO_MPS_RATIO_);
 
-        robotstatus_.angular_vel =
+        robotstatus_.motor_fb_vel.angular =
             ((robotstatus_.motor2.rpm * 2 / MOTOR_RPM_TO_MPS_RATIO_) -
              (robotstatus_.motor1.rpm * 2 / MOTOR_RPM_TO_MPS_RATIO_)) *
             odom_angular_coef_ * odom_traction_factor_;
       } else {
-        robotstatus_.linear_vel =
+        robotstatus_.motor_fb_vel.linear =
             0.5 * (robotstatus_.motor1.rpm / MOTOR_RPM_TO_MPS_RATIO_ +
                    robotstatus_.motor2.rpm / MOTOR_RPM_TO_MPS_RATIO_);
 
-        robotstatus_.angular_vel =
+        robotstatus_.motor_fb_vel.angular =
             ((robotstatus_.motor2.rpm / MOTOR_RPM_TO_MPS_RATIO_) -
              (robotstatus_.motor1.rpm / MOTOR_RPM_TO_MPS_RATIO_)) *
             odom_angular_coef_ * odom_traction_factor_;
@@ -353,7 +386,9 @@ int ProProtocolObject::cycle_robot_mode() {
   return 0;
 }
 void ProProtocolObject::register_comm_base(const char *device) {
-  if (comm_type_ == "serial") {
+	std::cout << "register comm base, comm_type_ = " << comm_type_ << std::endl;
+	if (comm_type_ == "serial") {
+	  std::cout <<"Comm_type_ is serial" << std::endl;
     std::vector<uint8_t> setting;
     setting.push_back(static_cast<uint8_t>(termios_baud_code_ >> 24));
     setting.push_back(static_cast<uint8_t>(termios_baud_code_ >> 16));
@@ -361,20 +396,24 @@ void ProProtocolObject::register_comm_base(const char *device) {
     setting.push_back(static_cast<uint8_t>(termios_baud_code_));
     setting.push_back(RECEIVE_MSG_LEN_);
     try {
+	    std::cout <<"register_comm_base, going to try" << std::endl;
       comm_base_ = std::make_unique<CommSerial>(
           device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
           setting);
     } catch (int i) {
+	    std::cout << "register comm base, catch" << std::endl;
       throw(i);
     }
 
   } else {  // not supported device
+	  std::cout << "register_comm_base, no supported device." << std::endl;
     throw(-2);
   }
 }
 
 void ProProtocolObject::send_command(int sleeptime,
-                                     std::vector<uint32_t> datalist) {
+                                     std::vector<uint32_t> datalist)
+{
   while (true) {
     for (int x : datalist) {
       if (comm_type_ == "serial") {
@@ -403,6 +442,11 @@ void ProProtocolObject::send_command(int sleeptime,
       std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
     }
   }
+}
+
+void ProProtocolObject::use_external_fb(const bool use_ext_fb)
+{
+  use_ext_fb_ = use_ext_fb;
 }
 
 }  // namespace RoverRobotics
