@@ -75,6 +75,7 @@ void ProProtocolObject::set_robot_velocity(double *controlarray) {
 }
 
 void ProProtocolObject::set_robot_fb_velocity(double linear_vel, double angular_vel) {
+  std::cout << "set_robot_fb_velocity: linear_vel = " << linear_vel << " angular_vel = " << angular_vel << std::endl;
   robotstatus_mutex_.lock();
   robotstatus_.ext_fb_vel.linear = linear_vel;
   robotstatus_.ext_fb_vel.angular = angular_vel;
@@ -148,8 +149,9 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
 
     double motor1_measured_vel; // left motor
     double motor2_measured_vel; // right motor
+    std::cout << "fb loop: use_ext_fb_ = " << use_ext_fb_ << std::endl;
 
-    if(use_ext_fb_) {
+    if(use_ext_fb_) { // TODO make sure we have recent data; otherwise switch to internal fb and throw a warning
       // compute motor vel based on externally observed robot vel
       motor1_measured_vel = ext_fb_vel.linear - 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
       motor2_measured_vel = ext_fb_vel.linear + 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
@@ -446,6 +448,7 @@ void ProProtocolObject::send_command(int sleeptime,
 
 void ProProtocolObject::use_external_fb(const bool use_ext_fb)
 {
+  std::cout << "ProProtocolObject::use_external_fb called , use_ext_fb = " << use_ext_fb << std::endl;
   use_ext_fb_ = use_ext_fb;
 }
 
