@@ -13,13 +13,7 @@ ProProtocolObject::ProProtocolObject(const char *device,
   motors_speeds_[LEFT_MOTOR] = MOTOR_NEUTRAL_;
   motors_speeds_[RIGHT_MOTOR] = MOTOR_NEUTRAL_;
   motors_speeds_[FLIPPER_MOTOR] = MOTOR_NEUTRAL_;
-  std::vector<uint32_t> fast_data = {REG_MOTOR_FB_RPM_LEFT,
-                                     REG_MOTOR_FB_RPM_RIGHT, EncoderInterval_0,
-                                     EncoderInterval_1};
-  std::vector<uint32_t> slow_data = {
-      REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
-      REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
-      REG_MOTOR_CHARGER_STATE,   BuildNO, REG_PWR_BAT_VOLTAGE_A};
+
   pid_ = pid;
   PidGains oldgain = {pid_.kp, pid_.ki, pid_.kd};
   if (robot_mode_ != Control::OPEN_LOOP)
@@ -29,7 +23,27 @@ ProProtocolObject::ProProtocolObject(const char *device,
   motor1_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
   motor2_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
 
-  register_comm_base(device);
+  // try {
+    // std::cout << "Going to register comm" << std::endl;
+      register_comm(device);
+    // } catch (int i) {
+      // std::cout << "init, catch" << std::endl;
+      // throw(i);
+    // }
+
+}
+
+void ProProtocolObject::register_comm(const char *device)
+{
+    register_comm_base(device);
+
+      std::vector<uint32_t> fast_data = {REG_MOTOR_FB_RPM_LEFT,
+                                     REG_MOTOR_FB_RPM_RIGHT, EncoderInterval_0,
+                                     EncoderInterval_1};
+  std::vector<uint32_t> slow_data = {
+      REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
+      REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
+      REG_MOTOR_CHARGER_STATE,   BuildNO, REG_PWR_BAT_VOLTAGE_A};
 
   // Create a New Thread with 30 mili seconds sleep timer
   fast_data_write_thread_ =
@@ -358,15 +372,18 @@ void ProProtocolObject::register_comm_base(const char *device) {
     setting.push_back(static_cast<uint8_t>(termios_baud_code_ >> 8));
     setting.push_back(static_cast<uint8_t>(termios_baud_code_));
     setting.push_back(RECEIVE_MSG_LEN_);
-    try {
+    // try {
+      // std::cout << "device, try" << std::endl;
       comm_base_ = std::make_unique<CommSerial>(
           device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
           setting);
-    } catch (int i) {
-      throw(i);
-    }
+    // } catch (int i) {
+      // std::cout << "device, catch" << std::endl;
+      // throw(i);
+    // }
 
   } else {  // not supported device
+  std::cout << "no supported device" << std::endl;
     throw(-2);
   }
 }
