@@ -23,14 +23,11 @@ ProProtocolObject::ProProtocolObject(const char *device,
   motor1_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
   motor2_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
 
-  // try {
-    // std::cout << "Going to register comm" << std::endl;
+  try {
       register_comm(device);
-    // } catch (int i) {
-      // std::cout << "init, catch" << std::endl;
-      // throw(i);
-    // }
-
+    } catch (int i) {
+      throw(i);
+    }
 }
 
 void ProProtocolObject::register_comm(const char *device)
@@ -54,6 +51,7 @@ void ProProtocolObject::register_comm(const char *device)
   // Create a motor update thread with 30 mili second sleep timer
   motor_commands_update_thread_ =
       std::thread([this]() { this->motors_control_loop(30); });
+       std::cout << "register_comm finished" << std::endl;
 }
 
 void ProProtocolObject::update_drivetrim(double value) { trimvalue_ += value; }
@@ -160,6 +158,7 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
   }
 }
 void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
+  // std::cout << "unpack_comm_response started" << std::endl;
   static std::vector<uint32_t> msgqueue;
   robotstatus_mutex_.lock();
   msgqueue.insert(msgqueue.end(), robotmsg.begin(),
@@ -356,6 +355,7 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
     // !ran out of data; waiting for more
   }
   robotstatus_mutex_.unlock();
+  // std::cout << "unpack_comm_response finished" << std::endl;
 }
 
 bool ProProtocolObject::is_connected() { return comm_base_->is_connected(); }
@@ -372,18 +372,15 @@ void ProProtocolObject::register_comm_base(const char *device) {
     setting.push_back(static_cast<uint8_t>(termios_baud_code_ >> 8));
     setting.push_back(static_cast<uint8_t>(termios_baud_code_));
     setting.push_back(RECEIVE_MSG_LEN_);
-    // try {
-      // std::cout << "device, try" << std::endl;
+    try {
       comm_base_ = std::make_unique<CommSerial>(
           device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
           setting);
-    // } catch (int i) {
-      // std::cout << "device, catch" << std::endl;
-      // throw(i);
-    // }
+    } catch (int i) {
+      throw(i);
+    }
 
   } else {  // not supported device
-  std::cout << "no supported device" << std::endl;
     throw(-2);
   }
 }
