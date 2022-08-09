@@ -5,7 +5,7 @@ namespace RoverRobotics {
 ProProtocolObject::ProProtocolObject(const char *device,
                                      std::string new_comm_type,
                                      Control::robot_motion_mode_t robot_mode,
-                                     Control::pid_gains pid) {
+                                     Control::pid_gains pid): trimvalue_(0.0) {
 
   comm_type_ = new_comm_type;
   robot_mode_ = robot_mode;
@@ -72,6 +72,7 @@ void ProProtocolObject::set_robot_velocity(double *controlarray) {
   robotstatus_mutex_.lock();
   robotstatus_.cmd_linear_vel = controlarray[0];
   robotstatus_.cmd_angular_vel = controlarray[1];
+
   motors_speeds_[FLIPPER_MOTOR] =
       (int)round(controlarray[2] + MOTOR_NEUTRAL_) % MOTOR_MAX_;
   robotstatus_.cmd_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -118,6 +119,7 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
       continue;
     }
 
+    // to correct for "standard" drift when driving straight
     if (angular_vel == 0) {
       if (linear_vel > 0) {
         angular_vel = trimvalue_;
@@ -125,9 +127,11 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
         angular_vel = -trimvalue_;
       }
     }
+
     // !Applying some Skid-steer math
     double motor1_vel = linear_vel - 0.5 * wheel2wheelDistance * angular_vel;
     double motor2_vel = linear_vel + 0.5 * wheel2wheelDistance * angular_vel;
+
     if (motor1_vel == 0) motor1_control_.reset();
     if (motor2_vel == 0) motor2_control_.reset();
     if (firmware == OVF_FIXED_FIRM_VER_) {  // check firmware version
@@ -153,12 +157,12 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
     motors_speeds_[RIGHT_MOTOR] = motor2_control_.boundMotorSpeed(
         int(round(motors_speeds_[RIGHT_MOTOR] * 50 + MOTOR_NEUTRAL_)),
         MOTOR_MAX_, MOTOR_MIN_);
+
     robotstatus_mutex_.unlock();
     time_last = time_now;
   }
 }
 void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
-  // std::cout << "unpack_comm_response started" << std::endl;
   static std::vector<uint32_t> msgqueue;
   robotstatus_mutex_.lock();
   msgqueue.insert(msgqueue.end(), robotmsg.begin(),
