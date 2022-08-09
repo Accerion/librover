@@ -83,6 +83,10 @@ class RoverRobotics::ProProtocolObject
    * @brief Thread Driven function update the robot motors using pid
    * @param sleeptime sleep time between each cycle
    */
+
+  void register_comm(const char *device);
+
+
   void motors_control_loop(int sleeptime);
   const float MOTOR_RPM_TO_MPS_RATIO_ = 13749 / 1.26 / 0.72;
   const int MOTOR_NEUTRAL_ = 125;

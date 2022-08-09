@@ -5,7 +5,7 @@ namespace RoverRobotics {
 ProProtocolObject::ProProtocolObject(const char *device,
                                      std::string new_comm_type,
                                      Control::robot_motion_mode_t robot_mode,
-                                     Control::pid_gains pid) {
+                                     Control::pid_gains pid): trimvalue_(0.0) {
 
   comm_type_ = new_comm_type;
   robot_mode_ = robot_mode;
@@ -13,13 +13,7 @@ ProProtocolObject::ProProtocolObject(const char *device,
   motors_speeds_[LEFT_MOTOR] = MOTOR_NEUTRAL_;
   motors_speeds_[RIGHT_MOTOR] = MOTOR_NEUTRAL_;
   motors_speeds_[FLIPPER_MOTOR] = MOTOR_NEUTRAL_;
-  std::vector<uint32_t> fast_data = {REG_MOTOR_FB_RPM_LEFT,
-                                     REG_MOTOR_FB_RPM_RIGHT, EncoderInterval_0,
-                                     EncoderInterval_1};
-  std::vector<uint32_t> slow_data = {
-      REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
-      REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
-      REG_MOTOR_CHARGER_STATE,   BuildNO, REG_PWR_BAT_VOLTAGE_A};
+
   pid_ = pid;
   PidGains oldgain = {pid_.kp, pid_.ki, pid_.kd};
   if (robot_mode_ != Control::OPEN_LOOP)
@@ -29,7 +23,24 @@ ProProtocolObject::ProProtocolObject(const char *device,
   motor1_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
   motor2_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
 
-  register_comm_base(device);
+  try {
+      register_comm(device);
+    } catch (int i) {
+      throw(i);
+    }
+}
+
+void ProProtocolObject::register_comm(const char *device)
+{
+    register_comm_base(device);
+
+      std::vector<uint32_t> fast_data = {REG_MOTOR_FB_RPM_LEFT,
+                                     REG_MOTOR_FB_RPM_RIGHT, EncoderInterval_0,
+                                     EncoderInterval_1};
+  std::vector<uint32_t> slow_data = {
+      REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
+      REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
+      REG_MOTOR_CHARGER_STATE,   BuildNO, REG_PWR_BAT_VOLTAGE_A};
 
   // Create a New Thread with 30 mili seconds sleep timer
   fast_data_write_thread_ =
@@ -60,6 +71,7 @@ void ProProtocolObject::set_robot_velocity(double *controlarray) {
   robotstatus_mutex_.lock();
   robotstatus_.cmd_linear_vel = controlarray[0];
   robotstatus_.cmd_angular_vel = controlarray[1];
+
   motors_speeds_[FLIPPER_MOTOR] =
       (int)round(controlarray[2] + MOTOR_NEUTRAL_) % MOTOR_MAX_;
   robotstatus_.cmd_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -106,6 +118,7 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
       continue;
     }
 
+    // to correct for "standard" drift when driving straight
     if (angular_vel == 0) {
       if (linear_vel > 0) {
         angular_vel = trimvalue_;
@@ -113,9 +126,11 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
         angular_vel = -trimvalue_;
       }
     }
+
     // !Applying some Skid-steer math
     double motor1_vel = linear_vel - 0.5 * wheel2wheelDistance * angular_vel;
     double motor2_vel = linear_vel + 0.5 * wheel2wheelDistance * angular_vel;
+
     if (motor1_vel == 0) motor1_control_.reset();
     if (motor2_vel == 0) motor2_control_.reset();
     if (firmware == OVF_FIXED_FIRM_VER_) {  // check firmware version
@@ -141,6 +156,7 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
     motors_speeds_[RIGHT_MOTOR] = motor2_control_.boundMotorSpeed(
         int(round(motors_speeds_[RIGHT_MOTOR] * 50 + MOTOR_NEUTRAL_)),
         MOTOR_MAX_, MOTOR_MIN_);
+
     robotstatus_mutex_.unlock();
     time_last = time_now;
   }
