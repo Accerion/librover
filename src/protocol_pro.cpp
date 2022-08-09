@@ -51,7 +51,6 @@ void ProProtocolObject::register_comm(const char *device)
   // Create a motor update thread with 30 mili second sleep timer
   motor_commands_update_thread_ =
       std::thread([this]() { this->motors_control_loop(30); });
-       std::cout << "register_comm finished" << std::endl;
 }
 
 void ProProtocolObject::update_drivetrim(double value) { trimvalue_ += value; }
@@ -359,7 +358,6 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
     // !ran out of data; waiting for more
   }
   robotstatus_mutex_.unlock();
-  // std::cout << "unpack_comm_response finished" << std::endl;
 }
 
 bool ProProtocolObject::is_connected() { return comm_base_->is_connected(); }

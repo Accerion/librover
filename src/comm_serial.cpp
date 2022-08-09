@@ -12,7 +12,6 @@ CommSerial::CommSerial(const char *device,
   struct termios tty;
   if (tcgetattr(serial_port_, &tty) != 0) {
     std::cerr << "Could not connect to port " << device ;
-    // throw(-1);
     return;
   }
 
