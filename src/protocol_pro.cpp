@@ -5,21 +5,14 @@ namespace RoverRobotics {
 ProProtocolObject::ProProtocolObject(const char *device,
                                      std::string new_comm_type,
                                      Control::robot_motion_mode_t robot_mode,
-                                     Control::pid_gains pid): use_ext_fb_(false) {
+                                     Control::pid_gains pid): use_ext_fb_(false) : trimvalue_(0.0){
   comm_type_ = new_comm_type;
   robot_mode_ = robot_mode;
   robotstatus_ = {0};
   motors_speeds_[LEFT_MOTOR] = MOTOR_NEUTRAL_;
   motors_speeds_[RIGHT_MOTOR] = MOTOR_NEUTRAL_;
   motors_speeds_[FLIPPER_MOTOR] = MOTOR_NEUTRAL_;
-  std::vector<uint32_t> fast_data = {REG_MOTOR_FB_RPM_LEFT,
-                                     REG_MOTOR_FB_RPM_RIGHT, EncoderInterval_0,
-                                     EncoderInterval_1};
-  std::vector<uint32_t> slow_data = {
-      REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
-      REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
-      REG_MOTOR_CHARGER_STATE,   BuildNO,
-      BATTERY_VOLTAGE_A};
+
   pid_ = pid;
   PidGains oldgain = {pid_.kp, pid_.ki, pid_.kd};
   if (robot_mode_ != Control::OPEN_LOOP)
@@ -29,24 +22,34 @@ ProProtocolObject::ProProtocolObject(const char *device,
   motor1_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
   motor2_control_ = OdomControl(closed_loop_, oldgain, 1.5, 0);
 
-  std::cout << "Pro constructor, going to register_comm_base" << std::endl;
-   register_comm_base(device);
- 
+  try {
+      register_comm(device);
+    } catch (int i) {
+      throw(i);
+    }
+}
 
-  std::cout << "Pro constructor, going to do thread 1" << std::endl;
-   // Create a New Thread with 30 mili seconds sleep timer
-   fast_data_write_thread_ =
-       std::thread([this, fast_data]() { this->send_command(30, fast_data); });
-   // Create a new Thread with 50 mili seconds sleep timer
-  std::cout << "Pro constructor, going to do thread 2" << std::endl;
-   slow_data_write_thread_ =
-       std::thread([this, slow_data]() { this->send_command(50, slow_data); });
-   // Create a motor update thread with 30 mili second sleep timer
-  std::cout << "Pro constructor, going to do thread 3" << std::endl;
-   motor_commands_update_thread_ =
-       std::thread([this]() { this->motors_control_loop(30); });
-  std::cout << "Pro constructor finished" << std::endl;
+void ProProtocolObject::register_comm(const char *device)
+{
+    register_comm_base(device);
 
+      std::vector<uint32_t> fast_data = {REG_MOTOR_FB_RPM_LEFT,
+                                     REG_MOTOR_FB_RPM_RIGHT, EncoderInterval_0,
+                                     EncoderInterval_1};
+  std::vector<uint32_t> slow_data = {
+      REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
+      REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
+      REG_MOTOR_CHARGER_STATE,   BuildNO, REG_PWR_BAT_VOLTAGE_A};
+
+  // Create a New Thread with 30 mili seconds sleep timer
+  fast_data_write_thread_ =
+      std::thread([this, fast_data]() { this->send_command(30, fast_data); });
+  // Create a new Thread with 50 mili seconds sleep timer
+  slow_data_write_thread_ =
+      std::thread([this, slow_data]() { this->send_command(50, slow_data); });
+  // Create a motor update thread with 30 mili second sleep timer
+  motor_commands_update_thread_ =
+      std::thread([this]() { this->motors_control_loop(30); });
 }
 
 void ProProtocolObject::update_drivetrim(double value) { trimvalue_ += value; }
@@ -137,6 +140,7 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
         ref_vel.angular = -trimvalue_;
       }
     }
+
     // !Applying some Skid-steer math
     double motor1_vel = ref_vel.linear - 0.5 * wheel2wheelDistance * ref_vel.angular;
     double motor2_vel = ref_vel.linear + 0.5 * wheel2wheelDistance * ref_vel.angular;
@@ -176,6 +180,7 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
     motors_speeds_[RIGHT_MOTOR] = motor2_control_.boundMotorSpeed(
         int(round(motors_speeds_[RIGHT_MOTOR] * 50 + MOTOR_NEUTRAL_)),
         MOTOR_MAX_, MOTOR_MIN_);
+
     robotstatus_mutex_.unlock();
     time_last = time_now;
   }
@@ -219,6 +224,7 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
     checksum = 255 - (dataNO + data1 + data2) % 255;
     read_checksum = (unsigned char)msgqueue[4];
     if (checksum == read_checksum) {  // verify checksum
+
       int16_t b = (data1 << 8) + data2;
       switch (int(dataNO)) {
         case REG_PWR_TOTAL_CURRENT:
@@ -255,6 +261,7 @@ void ProProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           robotstatus_.motor2.temp = b;
           break;
         case REG_PWR_BAT_VOLTAGE_A:
+	  robotstatus_.battery1.voltage = b/REG_PWR_BAT_VALUE_2_VOLTAGE_;
           break;
         case REG_PWR_BAT_VOLTAGE_B:
           break;

@@ -4,20 +4,21 @@
 namespace RoverRobotics {
 CommSerial::CommSerial(const char *device,
                        std::function<void(std::vector<uint8_t>)> parsefunction,
-                       std::vector<uint8_t> setting) {
+                       std::vector<uint8_t> setting):  is_connected_(false) {
+
   // open serial port at specified port
   serial_port_ = open(device, 02);
 
   struct termios tty;
   if (tcgetattr(serial_port_, &tty) != 0) {
-    std::cerr << "error";
-    throw(-1);
+    std::cerr << "Could not connect to port " << device ;
     return;
   }
+
   tty.c_cflag &= ~PARENB;  // Clear parity bit, disabling parity (most common)
   tty.c_cflag &= ~CSTOPB;  // Clear stop field, only one stop bit used in
                            // communication (most common)
-  tty.c_cflag &= ~CSIZE;   // Clear all bits that set the data size tty.c_cflag                           
+  tty.c_cflag &= ~CSIZE;   // Clear all bits that set the data size tty.c_cflag
   tty.c_cflag |= CS8;      // |= CS8; // 8 bits per byte (most common)
   
   tty.c_cflag &=
@@ -75,12 +76,14 @@ void CommSerial::read_device_loop(
   std::chrono::milliseconds time_last =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::system_clock::now().time_since_epoch());
+
   while (true) {
     uint8_t read_buf[read_size_];
     int num_bytes = read(serial_port_, &read_buf, read_size_);
     std::chrono::milliseconds time_now =
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch());
+
     if (num_bytes <= 0) {
       if ((time_now - time_last).count() > TIMEOUT_MS_) {
         is_connected_ = false;
