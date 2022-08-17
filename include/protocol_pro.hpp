@@ -112,6 +112,7 @@ class RoverRobotics::ProProtocolObject
   const double odom_angular_coef_ = 1/wheel2wheelDistance;
   const double odom_traction_factor_ = 0.9877; // Default for 2WD is 0.9877, 4WD is 0.610, flipper is 0.98
   const double CONTROL_LOOP_TIMEOUT_MS_ = 200;
+  const double VELOCITY_FB_TIMEOUT_MS_ = 25; // input is at 50 hz, so we expect a message every 20 ms
   const double REG_PWR_BAT_VALUE_2_VOLTAGE_ = 58; // As provided at https://roverrobotics.com/blogs/guides/uart-protocol?_pos=1&_sid=80776af63&_ss=r
   std::unique_ptr<CommBase> comm_base_;
   std::string comm_type_;
@@ -129,6 +130,7 @@ class RoverRobotics::ProProtocolObject
   OdomControl motor2_control_;
   Control::robot_motion_mode_t robot_mode_;
   Control::pid_gains pid_;
+  std::chrono::milliseconds lastReceivedRobotFBVelocity_;
 
   bool use_ext_fb_;
 
