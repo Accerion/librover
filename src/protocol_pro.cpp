@@ -6,6 +6,8 @@ ProProtocolObject::ProProtocolObject(const char *device,
                                      std::string new_comm_type,
                                      Control::robot_motion_mode_t robot_mode,
                                      Control::pid_gains pid): use_ext_fb_(false), trimvalue_(0.0){
+  lastReceivedRobotFBVelocity_ = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch());
   comm_type_ = new_comm_type;
   robot_mode_ = robot_mode;
   robotstatus_ = {0};
@@ -155,21 +157,22 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
 
     double motor1_measured_vel; // left motor
     double motor2_measured_vel; // right motor
-    std::cout << "fb loop: use_ext_fb_ = " << use_ext_fb_ << std::endl;
-
+    // std::cout << "fb loop: use_ext_fb_ = " << use_ext_fb_ << std::endl;
     float elapsedTimeSinceLastFBUpdate = (time_now - lastReceivedRobotFBVelocity_).count();
     bool use_ext_fb_allowed = true;
-    if(elapsedTimeSinceLastFBUpdate > VELOCITY_FB_TIMEOUT_MS_ && use_ext_fb_) {
+    if(elapsedTimeSinceLastFBUpdate > VELOCITY_FB_TIMEOUT_MS && use_ext_fb_) {
       use_ext_fb_allowed = false;
-      std::cout << "ERROR: Did not receive adequate external feedback, defaulting to encoders!" << std::endl;
+      std::cout << "ERROR: Did not receive adequate external feedback, defaulting to encoders! Milliseconds since last update: " << +elapsedTimeSinceLastFBUpdate << std::endl;
     }
     if(use_ext_fb_ && use_ext_fb_allowed) { // TODO make sure we have recent data; otherwise switch to internal fb and throw a warning
       // compute motor vel based on externally observed robot vel
       motor1_measured_vel = ext_fb_vel.linear - 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
       motor2_measured_vel = ext_fb_vel.linear + 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
+      std::cout << "Using ext fb" << std::endl;
     } else {
       motor1_measured_vel = rpm1 / MOTOR_RPM_TO_MPS_RATIO_;
       motor2_measured_vel = rpm2 / MOTOR_RPM_TO_MPS_RATIO_;
+      std::cout << "Using encoders" << std::endl;
     }
     robotstatus_mutex_.lock();
     // motor speeds in m/s

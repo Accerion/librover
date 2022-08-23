@@ -1,7 +1,7 @@
 #pragma once
 
 #include "protocol_base.hpp"
-
+const double VELOCITY_FB_TIMEOUT_MS = 30; // input is at 38 hz, so we expect a message every 28 ms
 namespace RoverRobotics {
 class ProProtocolObject;
 }
@@ -112,7 +112,6 @@ class RoverRobotics::ProProtocolObject
   const double odom_angular_coef_ = 1/wheel2wheelDistance;
   const double odom_traction_factor_ = 0.9877; // Default for 2WD is 0.9877, 4WD is 0.610, flipper is 0.98
   const double CONTROL_LOOP_TIMEOUT_MS_ = 200;
-  const double VELOCITY_FB_TIMEOUT_MS_ = 25; // input is at 50 hz, so we expect a message every 20 ms
   const double REG_PWR_BAT_VALUE_2_VOLTAGE_ = 58; // As provided at https://roverrobotics.com/blogs/guides/uart-protocol?_pos=1&_sid=80776af63&_ss=r
   std::unique_ptr<CommBase> comm_base_;
   std::string comm_type_;
