@@ -6,8 +6,7 @@ ProProtocolObject::ProProtocolObject(const char *device,
                                      std::string new_comm_type,
                                      Control::robot_motion_mode_t robot_mode,
                                      Control::pid_gains pid): use_ext_fb_(false), trimvalue_(0.0){
-  lastReceivedRobotFBVelocity_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch());
+  lastReceivedRobotFBVelocity_ = std::chrono::high_resolution_clock::now();
   comm_type_ = new_comm_type;
   robot_mode_ = robot_mode;
   robotstatus_ = {0};
@@ -80,9 +79,8 @@ void ProProtocolObject::set_robot_velocity(double *controlarray) {
 }
 
 void ProProtocolObject::set_robot_fb_velocity(double linear_vel, double angular_vel) {
-  std::cout << "set_robot_fb_velocity: linear_vel = " << linear_vel << " angular_vel = " << angular_vel << std::endl;
-  lastReceivedRobotFBVelocity_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch());
+  // std::cout << "set_robot_fb_velocity: linear_vel = " << linear_vel << " angular_vel = " << angular_vel << std::endl;
+  lastReceivedRobotFBVelocity_ = std::chrono::high_resolution_clock::now();
   robotstatus_mutex_.lock();
   robotstatus_.ext_fb_vel.linear = linear_vel;
   robotstatus_.ext_fb_vel.angular = angular_vel;
@@ -158,22 +156,28 @@ void ProProtocolObject::motors_control_loop(int sleeptime) {
     double motor1_measured_vel; // left motor
     double motor2_measured_vel; // right motor
     // std::cout << "fb loop: use_ext_fb_ = " << use_ext_fb_ << std::endl;
-    float elapsedTimeSinceLastFBUpdate = (time_now - lastReceivedRobotFBVelocity_).count();
+    float elapsedTimeSinceLastFBUpdate = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-lastReceivedRobotFBVelocity_)).count();
     bool use_ext_fb_allowed = true;
     if(elapsedTimeSinceLastFBUpdate > VELOCITY_FB_TIMEOUT_MS && use_ext_fb_) {
       use_ext_fb_allowed = false;
       std::cout << "ERROR: Did not receive adequate external feedback, defaulting to encoders! Milliseconds since last update: " << +elapsedTimeSinceLastFBUpdate << std::endl;
     }
+
+
+    double motor1_measured_enc = rpm1 / MOTOR_RPM_TO_MPS_RATIO_;
+    double motor2_measured_enc = rpm2 / MOTOR_RPM_TO_MPS_RATIO_;
     if(use_ext_fb_ && use_ext_fb_allowed) { // TODO make sure we have recent data; otherwise switch to internal fb and throw a warning
       // compute motor vel based on externally observed robot vel
-      motor1_measured_vel = ext_fb_vel.linear - 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
-      motor2_measured_vel = ext_fb_vel.linear + 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
-      std::cout << "Using ext fb" << std::endl;
+      double motor1_measured_ext_ref = ext_fb_vel.linear - 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
+      double motor2_measured_ext_ref = ext_fb_vel.linear + 0.5 * wheel2wheelDistance * ext_fb_vel.angular;
+      motor1_measured_vel = motor1_measured_ext_ref;
+      motor2_measured_vel = motor2_measured_ext_ref;
     } else {
-      motor1_measured_vel = rpm1 / MOTOR_RPM_TO_MPS_RATIO_;
-      motor2_measured_vel = rpm2 / MOTOR_RPM_TO_MPS_RATIO_;
-      std::cout << "Using encoders" << std::endl;
+      motor1_measured_vel = motor1_measured_enc;
+      motor2_measured_vel = motor2_measured_enc;
     }
+
+
     robotstatus_mutex_.lock();
     // motor speeds in m/s
     motors_speeds_[LEFT_MOTOR] =
