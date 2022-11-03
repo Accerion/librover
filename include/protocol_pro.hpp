@@ -1,7 +1,7 @@
 #pragma once
 
 #include "protocol_base.hpp"
-const double VELOCITY_FB_TIMEOUT_MS = 30; // input is at 38 hz, so we expect a message every 28 ms
+const double VELOCITY_FB_TIMEOUT_MS = 50;
 namespace RoverRobotics {
 class ProProtocolObject;
 }
@@ -129,7 +129,7 @@ class RoverRobotics::ProProtocolObject
   OdomControl motor2_control_;
   Control::robot_motion_mode_t robot_mode_;
   Control::pid_gains pid_;
-  std::chrono::milliseconds lastReceivedRobotFBVelocity_;
+  std::chrono::time_point<std::chrono::high_resolution_clock> lastReceivedRobotFBVelocity_;
 
   bool use_ext_fb_;
 
