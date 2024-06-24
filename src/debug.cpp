@@ -51,10 +51,12 @@ void print_status(RoverRobotics::robotData &robotdata) {
             << "motor3_angle " << robotdata.motor3_angle << std::endl
             << "motor3_sensor1 " << robotdata.motor3_sensor1 << std::endl
             << "motor3_sensor2 " << robotdata.motor3_sensor2 << std::endl
-            << "linear_vel " << robotdata.linear_vel << std::endl
-            << "angular_vel " << robotdata.angular_vel << std::endl
-            << "cmd_linear_vel " << robotdata.cmd_linear_vel << std::endl
-            << "cmd_angular_vel " << robotdata.cmd_angular_vel << std::endl
+            << "motor_fb_vel linear " << robotdata.motor_fb_vel.linear << std::endl
+            << "motor_fb_vel angular " << robotdata.motor_fb_vel.angular << std::endl
+            << "ext_fb_vel linear " << robotdata.ext_fb_vel.linear << std::endl
+            << "ext_fb_vel angular " << robotdata.ext_fb_vel.angular << std::endl
+            << "cmd_linear_vel " << robotdata.cmd_vel.linear << std::endl
+            << "cmd_angular_vel " << robotdata.cmd_vel.angular << std::endl
 	    << "Firmware" << robotdata.robot_firmware << std::endl;
 }
 

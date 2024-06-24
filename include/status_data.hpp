@@ -4,6 +4,7 @@ namespace RoverRobotics {
 struct motorData {
   signed short int id;
   float rpm;
+  unsigned int encoder_count;
   signed short int current;
   signed short int temp;
   signed short int mos_temp;
@@ -16,6 +17,11 @@ struct batteryData {
   bool SOC;
   unsigned short int fault_flag;
   };
+
+struct robotVelocity {
+  double linear;
+  double angular;
+};
 
 struct robotData {
   // Motor Infos
@@ -41,12 +47,10 @@ struct robotData {
   unsigned short int motor3_sensor2;
 
   // Robot Info
-  double linear_vel;
-  double angular_vel;
+  robotVelocity motor_fb_vel;
+  robotVelocity ext_fb_vel;
+  robotVelocity cmd_vel;  
 
-  // Velocity Info
-  double cmd_linear_vel;
-  double cmd_angular_vel;
   std::chrono::milliseconds cmd_ts;
 
   // estop info

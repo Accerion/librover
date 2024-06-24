@@ -3,7 +3,7 @@ namespace RoverRobotics {
 Pro2ProtocolObject::Pro2ProtocolObject(
     const char *device, std::string new_comm_type,
     Control::robot_motion_mode_t robot_mode, Control::pid_gains pid,
-    Control::angular_scaling_params angular_scale) {
+    Control::angular_scaling_params angular_scale): use_ext_fb_(false) {
   
   /* create object to load/store persistent parameters (ie trim) */
   persistent_params_ = std::make_unique<Utilities::PersistentParams>(ROBOT_PARAM_PATH);
@@ -132,11 +132,15 @@ robotData Pro2ProtocolObject::info_request() {
 
 void Pro2ProtocolObject::set_robot_velocity(double *control_array) {
   robotstatus_mutex_.lock();
-  robotstatus_.cmd_linear_vel = control_array[0];
-  robotstatus_.cmd_angular_vel = control_array[1];
+  robotstatus_.cmd_vel.linear = control_array[0];
+  robotstatus_.cmd_vel.angular = control_array[1];
   robotstatus_.cmd_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::system_clock::now().time_since_epoch());
   robotstatus_mutex_.unlock();
+}
+
+void Pro2ProtocolObject::set_robot_fb_velocity(double linear_vel, double angular_vel) {
+  std::cout << "ERROR: external fb not implemented for pro 2 robot." << std::endl;
 }
 
 void Pro2ProtocolObject::unpack_comm_response(std::vector<uint8_t> robotmsg) {
@@ -200,8 +204,8 @@ void Pro2ProtocolObject::send_command(int sleeptime) {
       /* only use current control when robot is stopped to prevent wasted energy
        */
       bool useCurrentControl = motors_speeds_[vid] == MOTOR_NEUTRAL_ &&
-                               robotstatus_.linear_vel == MOTOR_NEUTRAL_ &&
-                               robotstatus_.angular_vel == MOTOR_NEUTRAL_;
+                               robotstatus_.motor_fb_vel.linear == MOTOR_NEUTRAL_ &&
+                               robotstatus_.motor_fb_vel.angular == MOTOR_NEUTRAL_;
 
       robotstatus_mutex_.unlock();
 
@@ -257,8 +261,8 @@ void Pro2ProtocolObject::motors_control_loop(int sleeptime) {
 
     /* collect user commands and various status */
     robotstatus_mutex_.lock();
-    linear_vel_target = robotstatus_.cmd_linear_vel;
-    angular_vel_target = robotstatus_.cmd_angular_vel;
+    linear_vel_target = robotstatus_.cmd_vel.linear;
+    angular_vel_target = robotstatus_.cmd_vel.angular;
     rpm_FL = robotstatus_.motor1.rpm;
     rpm_FR = robotstatus_.motor2.rpm;
     rpm_BL = robotstatus_.motor3.rpm;
@@ -291,8 +295,8 @@ void Pro2ProtocolObject::motors_control_loop(int sleeptime) {
       motors_speeds_[FRONT_RIGHT] = duty_cycles.fr;
       motors_speeds_[BACK_LEFT] = duty_cycles.rl;
       motors_speeds_[BACK_RIGHT] = duty_cycles.rr;
-      robotstatus_.linear_vel = velocities.linear_velocity;
-      robotstatus_.angular_vel = velocities.angular_velocity;
+      robotstatus_.motor_fb_vel.linear = velocities.linear_velocity;
+      robotstatus_.motor_fb_vel.angular = velocities.angular_velocity;
       robotstatus_mutex_.unlock();
 
     } else {
@@ -309,12 +313,18 @@ void Pro2ProtocolObject::motors_control_loop(int sleeptime) {
       motors_speeds_[FRONT_RIGHT] = MOTOR_NEUTRAL_;
       motors_speeds_[BACK_LEFT] = MOTOR_NEUTRAL_;
       motors_speeds_[BACK_RIGHT] = MOTOR_NEUTRAL_;
-      robotstatus_.linear_vel = velocities.linear_velocity;
-      robotstatus_.angular_vel = velocities.angular_velocity;
+      robotstatus_.motor_fb_vel.linear = velocities.linear_velocity;
+      robotstatus_.motor_fb_vel.angular = velocities.angular_velocity;
       robotstatus_mutex_.unlock();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
   }
+}
+
+void Pro2ProtocolObject::use_external_fb(const bool use_ext_fb)
+{
+  use_ext_fb_ = use_ext_fb;
+  std::cout << "ERROR: external fb not implemented for pro 2 robot." << std::endl;
 }
 
 }  // namespace RoverRobotics

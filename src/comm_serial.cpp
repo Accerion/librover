@@ -20,6 +20,7 @@ CommSerial::CommSerial(const char *device,
                            // communication (most common)
   tty.c_cflag &= ~CSIZE;   // Clear all bits that set the data size tty.c_cflag
   tty.c_cflag |= CS8;      // |= CS8; // 8 bits per byte (most common)
+  
   tty.c_cflag &=
       ~CRTSCTS;  // Disable RTS/CTS hardware flow control (most common)
   tty.c_cflag |=
@@ -53,7 +54,7 @@ CommSerial::CommSerial(const char *device,
     throw(-1);
     return;
   }
-
+  is_connected_ = false;
   serial_read_thread_ = std::thread(
       [this, parsefunction]() { this->read_device_loop(parsefunction); });
 }

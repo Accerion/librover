@@ -180,6 +180,12 @@ public:
    */
   void set_robot_velocity(double *controllarray) override;
   /*
+   * @brief set the (externally) observed robot velocity NOT USED ATM FOR ZERO 2
+   * @param linear_vel the forward robot velocity
+   * @param linear_vel the rotational robot velocity (around the z-axis)
+   */
+  void set_robot_fb_velocity(double linear_vel, double angular_vel) override;
+  /*
    * @brief Unpack bytes from the robot
    * This is meant to use as a callback function when there are bytes available
    * to process
@@ -202,6 +208,11 @@ public:
    * @param device is the address of the device (ttyUSB0 , can0, ttyACM0)
    */
   void register_comm_base(const char *device) override;
+  /*
+   * @brief Listen to external fb commands or not NOT USED FOR ZERO 2 ATM
+   * @param use_ext_fb listen to external bf when true, otherwise use fb from motors
+   */
+  void use_external_fb(const bool use_ext_fb) override;
 
   enum uart_param
   {
@@ -209,4 +220,6 @@ public:
     COMM_SET_DUTY = 5,
     COMM_CAN_FORWARD = 34
   };
+
+  bool use_ext_fb_;
 };

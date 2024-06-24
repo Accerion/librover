@@ -58,6 +58,12 @@ class RoverRobotics::Pro2ProtocolObject
    * @param controllarray an double array of control in m/s
    */
   void set_robot_velocity(double *controllarray) override;
+   /*
+   * @brief set the (externally) observed robot velocity NOT USED ATM FOR PRO 2
+   * @param linear_vel the forward robot velocity
+   * @param linear_vel the rotational robot velocity (around the z-axis)
+   */
+  void set_robot_fb_velocity(double linear_vel, double angular_vel) override;
   /*
    * @brief Unpack bytes from the robot
    * This is meant to use as a callback function when there are bytes available
@@ -81,6 +87,12 @@ class RoverRobotics::Pro2ProtocolObject
    * @param device is the address of the device (ttyUSB0 , can0, ttyACM0, etc)
    */
   void register_comm_base(const char *device) override;
+
+  /*
+   * @brief Listen to external fb commands or not NOT USED FOR PRO 2 ATM
+   * @param use_ext_fb listen to external bf when true, otherwise use fb from motors
+   */
+  void use_external_fb(const bool use_ext_fb) override;
 
  private:
   /*
@@ -157,5 +169,6 @@ class RoverRobotics::Pro2ProtocolObject
   Control::angular_scaling_params angular_scaling_params_;
 
   vesc::BridgedVescArray vescArray_;
-
+  
+  bool use_ext_fb_;
 };
